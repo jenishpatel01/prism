@@ -57,12 +57,17 @@ export async function GET(request: NextRequest) {
   }
 
   // Who signed in.
-  const userRes = await fetch("https://api.github.com/user", {
-    headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "User-Agent": "prism-code-intelligence" },
-    cache: "no-store",
-  });
-  if (!userRes.ok) return fail(request, "Couldn't read your GitHub profile.");
-  const user = (await userRes.json()) as { id: number; login: string; name: string | null; avatar_url: string };
+  let user: { id: number; login: string; name: string | null; avatar_url: string };
+  try {
+    const userRes = await fetch("https://api.github.com/user", {
+      headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "User-Agent": "prism-code-intelligence" },
+      cache: "no-store",
+    });
+    if (!userRes.ok) return fail(request, "Couldn't read your GitHub profile.");
+    user = (await userRes.json()) as typeof user;
+  } catch {
+    return fail(request, "Couldn't reach GitHub to read your profile.");
+  }
 
   const session = { githubId: user.id, login: user.login, name: user.name, avatar: user.avatar_url, token, scopes };
   await upsertUser(session); // no-op without a database

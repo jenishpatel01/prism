@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { appOrigin, features } from "@/server/config";
-import { OAUTH_COOKIE, cookieOptions } from "@/server/session";
+import { OAUTH_COOKIE, cookieOptions, getSession } from "@/server/session";
 
 /** Only allow redirects back into the app, never to another site. */
 function safeReturnTo(value: string | null) {
@@ -22,6 +22,14 @@ export async function GET(request: NextRequest) {
 
   const wantsPrivate = url.searchParams.get("private") === "1";
   const returnTo = safeReturnTo(url.searchParams.get("returnTo"));
+
+  // Already signed in to PRISM (and not asking for more access): go straight into the app.
+  // The session lasts until the user signs out.
+  const session = await getSession();
+  if (session && !(wantsPrivate && !session.scopes.includes("repo"))) {
+    return NextResponse.redirect(new URL(returnTo, url));
+  }
+
   const state = randomBytes(16).toString("hex");
 
   const authorize = new URL("https://github.com/login/oauth/authorize");
@@ -30,6 +38,9 @@ export async function GET(request: NextRequest) {
   authorize.searchParams.set("scope", wantsPrivate ? "read:user repo" : "read:user");
   authorize.searchParams.set("state", state);
   authorize.searchParams.set("allow_signup", "true");
+  // Always show GitHub's account screen, so signing in is a deliberate choice every time
+  // (and a different account can be picked).
+  authorize.searchParams.set("prompt", "select_account");
 
   const res = NextResponse.redirect(authorize);
   res.cookies.set(OAUTH_COOKIE, JSON.stringify({ state, returnTo }), { ...cookieOptions, maxAge: 600 });

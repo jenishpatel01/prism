@@ -19,7 +19,7 @@ export type Session = {
 
 export const SESSION_COOKIE = "prism_session";
 export const OAUTH_COOKIE = "prism_oauth";
-const MAX_AGE = 60 * 60 * 24 * 30; // 30 days
+const MAX_AGE = 60 * 60 * 24 * 180; // stays signed in until the user signs out (or 180 days pass)
 
 function key(): Uint8Array | null {
   const secret = process.env.AUTH_SECRET;
