@@ -18,6 +18,8 @@ export const metadata: Metadata = {
   title: { default: "PRISM — See your code differently", template: "%s · PRISM" },
   description:
     "Code intelligence for your whole repository: security, architecture, dependencies and performance, mapped in three dimensions.",
+  // Home-screen install on iPhone/iPad (Android and desktop use the web manifest).
+  appleWebApp: { capable: true, title: "PRISM", statusBarStyle: "black-translucent" },
 };
 
 export const viewport: Viewport = {

@@ -243,7 +243,12 @@ export default function Home() {
 
       <footer className="relative flex flex-col items-start justify-between gap-4 border-t border-line bg-bg-0 px-4 py-8 text-fg-muted sm:flex-row sm:items-center md:px-10">
         <Logo className="text-fg" />
-        <p className="label">© 2026 PRISM · See your code differently</p>
+        <p className="label">
+          © 2026 PRISM · See your code differently ·{" "}
+          <Link href="/privacy" className="hover:text-fg">
+            Privacy
+          </Link>
+        </p>
       </footer>
     </>
   );

@@ -102,6 +102,18 @@ export function upsertUser(u: { githubId: number; login: string; name: string | 
   );
 }
 
+/**
+ * Deletes a user and, through the foreign key, every saved analysis of theirs.
+ * True when it's done (or there's no database, so nothing is stored); false if the delete failed.
+ */
+export async function deleteUserData(githubId: number): Promise<boolean> {
+  if (!process.env.DATABASE_URL) return true;
+  return safely(async (sql) => {
+    await sql`delete from prism_users where github_id = ${githubId}`;
+    return true;
+  }, false);
+}
+
 /* ---------------- Analyses ---------------- */
 
 export type SavedRow = {

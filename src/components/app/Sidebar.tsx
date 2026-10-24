@@ -86,19 +86,29 @@ type SidebarProps = { user: PublicUser | null; authEnabled: boolean };
 function Account({ user, authEnabled, onNavigate }: SidebarProps & { onNavigate?: () => void }) {
   if (user) {
     return (
-      <div className="flex items-center gap-3 px-2">
-        {/* GitHub avatar; a plain img avoids configuring remote image domains. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={user.avatar} alt="" width={28} height={28} className="size-7 rounded-full border border-line" />
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-[13px] text-fg">{user.name ?? user.login}</span>
-          <span className="block truncate font-mono text-[11px] text-fg-dim">@{user.login}</span>
-        </span>
-        <form action="/api/auth/logout" method="post">
-          <button type="submit" className="rounded-md px-1.5 py-1 text-[11.5px] text-fg-dim hover:text-white" title="Sign out">
-            Sign out
-          </button>
-        </form>
+      <div className="space-y-2">
+        <div className="flex items-center gap-3 px-2">
+          {/* GitHub avatar; a plain img avoids configuring remote image domains. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={user.avatar} alt="" width={28} height={28} className="size-7 rounded-full border border-line" />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[13px] text-fg">{user.name ?? user.login}</span>
+            <span className="block truncate font-mono text-[11px] text-fg-dim">@{user.login}</span>
+          </span>
+          <form action="/api/auth/logout" method="post">
+            <button type="submit" className="rounded-md px-1.5 py-1 text-[11.5px] text-fg-dim hover:text-white" title="Sign out">
+              Sign out
+            </button>
+          </form>
+        </div>
+        <p className="flex gap-3 px-2 text-[11px] text-fg-dim">
+          <Link href="/app/account" onClick={onNavigate} className="hover:text-white">
+            Your data
+          </Link>
+          <Link href="/privacy" onClick={onNavigate} className="hover:text-white">
+            Privacy
+          </Link>
+        </p>
       </div>
     );
   }
