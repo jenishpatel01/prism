@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import Hero from "@/components/dom/Hero";
 import Nav from "@/components/dom/Nav";
 import Logo from "@/components/dom/Logo";
@@ -228,12 +229,12 @@ export default function Home() {
             >
               CONNECT GITHUB
             </a>
-            <a
-              href="#universe"
+            <Link
+              href="/app"
               className="inline-flex h-12 items-center rounded-md border border-line-strong bg-bg-0/40 px-6 font-mono text-[12px] tracking-[0.12em] text-white backdrop-blur transition-colors hover:border-fg-muted"
             >
               EXPLORE DEMO
-            </a>
+            </Link>
           </div>
         </section>
       </main>

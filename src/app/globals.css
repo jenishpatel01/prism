@@ -18,6 +18,8 @@
   --accent-violet: #8d7cff; /* intelligence / AI core */
   --accent-cyan: #5ee6ff; /* data flow, performance */
   --critical: #ff4d5e; /* security risk only */
+  --warning: #f5b04c; /* high severity */
+  --success: #4ade9a; /* improvements, passed checks */
 
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
@@ -37,6 +39,8 @@
   --color-accent-violet: var(--accent-violet);
   --color-accent-cyan: var(--accent-cyan);
   --color-critical: var(--critical);
+  --color-warning: var(--warning);
+  --color-success: var(--success);
 
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);

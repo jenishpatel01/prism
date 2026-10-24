@@ -28,4 +28,13 @@ npm run dev
 - **Repository universe**: 3D graph of a demo repo (`src/components/canvas/Universe.tsx`, data in `src/lib/demoRepo.ts`).
 - **Security, performance, architecture, AI core**: animated SVG scenes in `src/components/visuals/`.
 
-All numbers and files shown are demo data. The buttons and nav links don't go anywhere yet.
+## App (`/app`)
+
+- **Layout**: `src/app/app/layout.tsx` with the sidebar in `src/components/app/Sidebar.tsx` (fixed on large screens, slide-out menu on phones). Navigation items live in `src/components/app/nav.ts`.
+- **Overview** (`src/app/app/page.tsx`): health score, stats, live 3D repository map, top risks, AI summary, issue breakdown, hotspots, quality trends, pipeline run and history. Widgets are in `src/components/app/overview/`.
+- **Other sections** (Repository, Architecture, Security, Performance, Quality, AI Review, History) are placeholder screens built with `ComingSoon.tsx`.
+- **Demo data** for every screen is in `src/lib/demoAnalysis.ts`. Its shape mirrors what the analysis pipeline will produce, so real results can replace it.
+
+The landing page lives in the `(marketing)` route group, which adds Lenis smooth scroll; the app scrolls natively. Both share the root layout's 3D canvas and background.
+
+All numbers and files shown are demo data. "Connect GitHub" doesn't do anything yet.

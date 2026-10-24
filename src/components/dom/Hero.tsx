@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef } from "react";
+import Link from "next/link";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
@@ -30,6 +31,9 @@ export default function Hero() {
         intro.edges = 1;
         gsap.set([...copy, nav], { opacity: 1 });
       } else {
+        // Start from scattered particles, even when returning from another page.
+        intro.form = 0;
+        intro.edges = 0;
         const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
         tl.fromTo(q("[data-intro='mark']"), { opacity: 0, letterSpacing: "0.1em" }, { opacity: 1, letterSpacing: "0.32em", duration: 1.1 }, 0.3)
           .to(q("[data-intro='mark']"), { opacity: 0, duration: 0.7, ease: "power2.in" }, 1.6)
@@ -116,12 +120,12 @@ export default function Hero() {
                 <GitHubMark />
                 CONNECT GITHUB
               </a>
-              <a
-                href="#universe"
+              <Link
+                href="/app"
                 className="inline-flex h-11 items-center rounded-md border border-line-strong px-5 font-mono text-[12px] tracking-[0.12em] text-fg transition-colors hover:border-fg-muted"
               >
                 EXPLORE DEMO
-              </a>
+              </Link>
             </div>
           </div>
         </div>

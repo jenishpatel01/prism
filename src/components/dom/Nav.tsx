@@ -25,9 +25,9 @@ export default function Nav() {
           ))}
         </nav>
         <div className="flex items-center gap-6">
-          <a href="#" className="hidden text-[13px] text-fg-muted transition-colors hover:text-fg sm:block">
-            Sign in
-          </a>
+          <Link href="/app" className="hidden text-[13px] text-fg-muted transition-colors hover:text-fg sm:block">
+            Demo app
+          </Link>
           <a
             href="#"
             className="inline-flex h-8 items-center rounded-md border border-line-strong px-3.5 text-[12px] text-fg transition-colors hover:border-fg-muted"
