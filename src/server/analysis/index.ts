@@ -393,7 +393,7 @@ async function runAnalysis(owner: string, name: string, token?: string): Promise
       { stage: "Graph", time: ms(timings.Graph) },
       { stage: "Deps", time: ms(timings.Deps) },
       { stage: "Quality", time: ms(timings.Quality) },
-      { stage: "Claude", time: "Phase 2", ai: true, skipped: true },
+      { stage: "AI", time: "Phase 2", ai: true, skipped: true },
       { stage: "Visualize", time: ms(timings.Visualize), ai: true },
     ],
     summary: { headline, points, byClaude: false },

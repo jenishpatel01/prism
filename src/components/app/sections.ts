@@ -41,7 +41,7 @@ export const SECTIONS: Record<string, { title: string; icon: IconName; descripti
   "ai-review": {
     title: "AI Review",
     icon: "ai",
-    description: "Claude explains what the analysis found, with every claim linked to evidence.",
+    description: "AI explains what the analysis found, with every claim linked to evidence.",
     planned: [],
   },
   history: {

@@ -31,7 +31,7 @@ export default function OverviewView({
   aiEnabled?: boolean;
 }) {
   const shown = aiEnabled
-    ? { ...data, pipeline: data.pipeline.map((s) => (s.stage === "Claude" ? { ...s, time: "Explains", skipped: false } : s)) }
+    ? { ...data, pipeline: data.pipeline.map((s) => (s.stage === "AI" ? { ...s, time: "Explains", skipped: false } : s)) }
     : data;
   const p = { data: shown, base };
   return (

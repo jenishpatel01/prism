@@ -19,7 +19,7 @@ const pipeline = [
   "Dependency graph",
   "Performance metrics",
   "Quality metrics",
-  "Claude interpretation",
+  "AI interpretation",
   "Visual intelligence",
 ];
 
@@ -181,7 +181,7 @@ export default function Home() {
                     Analysis finds the facts. <span className="text-spectrum">AI explains them.</span>
                   </>
                 }
-                body="PRISM isn't a chatbot reading your code. It parses every file, builds the graph, runs static and security analysis, then uses Claude to explain what the numbers mean."
+                body="PRISM isn't a chatbot reading your code. It parses every file, builds the graph, runs static and security analysis, then uses AI to explain what the numbers mean."
               />
             </div>
             <div className="md:order-1 md:col-span-6">

@@ -182,12 +182,12 @@ export function AiSummary({ data, base, status }: Props & { status?: "pending" |
         <p className="mt-6 flex items-center gap-2 border-t border-line pt-4 font-mono text-[11px] leading-relaxed text-fg-dim">
           {status === "pending" && <span className="breathe size-1.5 shrink-0 rounded-full bg-accent-violet" />}
           {status === "pending"
-            ? "Claude is reviewing the findings…"
+            ? "AI is reviewing the findings…"
             : status === "unavailable"
-              ? "Built from the analysis facts. Claude's review couldn't be generated this time."
+              ? "Built from the analysis facts. The AI review couldn't be generated this time."
               : summary.byClaude
-                ? "Written by Claude from the analysis facts. Every point links to its evidence."
-                : "Built directly from the analysis facts. Add a Claude API key in Setup for AI explanations."}
+                ? "Written by AI from the analysis facts. Every point links to its evidence."
+                : "Built directly from the analysis facts. Add a free Gemini or Claude key in Setup for AI explanations."}
         </p>
       </div>
     </section>
@@ -331,7 +331,7 @@ export function PipelineStatus({ data }: Props) {
         ))}
       </ol>
       <p className="mt-6 text-[12.5px] leading-relaxed text-fg-muted">
-        Deterministic stages find the facts. Claude only runs at the end, to explain them.
+        Deterministic stages find the facts. AI only runs at the end, to explain them.
       </p>
     </Panel>
   );

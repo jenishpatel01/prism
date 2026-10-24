@@ -75,7 +75,7 @@ export default async function AiReviewView({ data, base, review: given }: { data
                   </div>
                   {r.falsePositiveRisk !== "low" && (
                     <p className="text-[12px] text-fg-dim">
-                      Claude thinks this may be a false positive ({r.falsePositiveRisk} likelihood). Check the code before changing it.
+                      The AI thinks this may be a false positive ({r.falsePositiveRisk} likelihood). Check the code before changing it.
                     </p>
                   )}
                 </div>
@@ -85,7 +85,7 @@ export default async function AiReviewView({ data, base, review: given }: { data
         </ol>
       </Panel>
       <p className="text-[12px] leading-relaxed text-fg-dim">
-        Claude only sees the findings, file locations and metrics above, never your source code. Explanations can be wrong; the linked facts are the source of truth.
+        The AI only sees the findings, file locations and metrics above, never your source code. Explanations can be wrong; the linked facts are the source of truth.
       </p>
     </div>
   );

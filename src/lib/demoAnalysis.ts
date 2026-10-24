@@ -69,7 +69,7 @@ export const demoResult: AnalysisResult = {
     { stage: "Graph", time: "12s" },
     { stage: "Profile", time: "25s" },
     { stage: "Quality", time: "9s" },
-    { stage: "Claude", time: "14s", ai: true },
+    { stage: "AI", time: "14s", ai: true },
     { stage: "Visualize", time: "5s", ai: true },
   ],
   summary: {
