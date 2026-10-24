@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import SceneLoader from "@/components/canvas/SceneLoader";
+import CursorFX from "@/components/dom/CursorFX";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -35,6 +36,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {/* Page content sits above the canvas; 3D shows through its transparent areas. */}
         <div className="relative z-10">{children}</div>
         <SceneLoader />
+        <CursorFX />
       </body>
     </html>
   );

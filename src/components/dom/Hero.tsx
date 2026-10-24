@@ -35,12 +35,14 @@ export default function Hero() {
         intro.form = 0;
         intro.edges = 0;
         const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
-        tl.fromTo(q("[data-intro='mark']"), { opacity: 0, letterSpacing: "0.1em" }, { opacity: 1, letterSpacing: "0.32em", duration: 1.1 }, 0.3)
-          .to(q("[data-intro='mark']"), { opacity: 0, duration: 0.7, ease: "power2.in" }, 1.6)
-          .to(intro, { form: 1, duration: 3.4, ease: "power2.inOut" }, 1.7)
-          .to(intro, { edges: 1, duration: 1.6, ease: "power2.out" }, 4.1)
-          .fromTo(copy, { opacity: 0, y: 28 }, { opacity: 1, y: 0, duration: 1.2, stagger: 0.1 }, 3.9)
-          .to(nav, { opacity: 1, duration: 1 }, 4.2);
+        // Logo: the mark draws itself (CSS), the wordmark opens up, then it all fades into the scene.
+        tl.fromTo(q("[data-intro='mark']"), { opacity: 0, scale: 0.92 }, { opacity: 1, scale: 1, duration: 1.1 }, 0.2)
+          .fromTo(q("[data-wordmark]"), { letterSpacing: "0.1em", opacity: 0 }, { letterSpacing: "0.42em", opacity: 1, duration: 1.2 }, 0.9)
+          .to(q("[data-intro='mark']"), { opacity: 0, scale: 1.06, duration: 0.7, ease: "power2.in" }, 2.3)
+          .to(intro, { form: 1, duration: 3.4, ease: "power2.inOut" }, 2.4)
+          .to(intro, { edges: 1, duration: 1.6, ease: "power2.out" }, 4.8)
+          .fromTo(copy, { opacity: 0, y: 28 }, { opacity: 1, y: 0, duration: 1.2, stagger: 0.1 }, 4.6)
+          .to(nav, { opacity: 1, duration: 1 }, 4.9);
       }
 
       // Scroll drives the camera through the prism.
@@ -86,7 +88,7 @@ export default function Hero() {
 
         {/* Opening mark, shown on the black screen before the object forms. */}
         <div className="pointer-events-none absolute inset-0 grid place-items-center">
-          <Logo className="text-fg opacity-0 [&_svg]:hidden" data-intro="mark" />
+          <Logo stacked className="opacity-0" data-intro="mark" />
         </div>
 
         <div
@@ -113,8 +115,10 @@ export default function Hero() {
               architecture, dependencies and performance, mapped as one system.
             </p>
             <div data-intro="copy" className="mt-7 flex flex-wrap gap-3 opacity-0">
+              {/* Starts GitHub sign-in (or opens the analyze page if sign-in isn't set up). */}
+              { }
               <a
-                href="#"
+                href="/api/auth/login"
                 className="inline-flex h-11 items-center gap-2.5 rounded-md bg-fg px-5 font-mono text-[12px] font-medium tracking-[0.12em] text-bg-0 transition-colors hover:bg-white"
               >
                 <GitHubMark />

@@ -223,8 +223,10 @@ export default function Home() {
             Connect a repository and see its first map in minutes.
           </p>
           <div className="relative mt-10 flex flex-wrap justify-center gap-3">
+            {/* Starts GitHub sign-in (or opens the analyze page if sign-in isn't set up). */}
+            { }
             <a
-              href="#"
+              href="/api/auth/login"
               className="inline-flex h-12 items-center rounded-md bg-white px-6 font-mono text-[12px] font-medium tracking-[0.12em] text-bg-0 shadow-[0_0_40px_rgb(91_140_255/0.45)] transition-shadow hover:shadow-[0_0_60px_rgb(91_140_255/0.7)]"
             >
               CONNECT GITHUB

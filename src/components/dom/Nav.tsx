@@ -28,8 +28,10 @@ export default function Nav() {
           <Link href="/app" className="hidden text-[13px] text-fg-muted transition-colors hover:text-fg sm:block">
             Demo app
           </Link>
+          {/* Starts GitHub sign-in (or opens the analyze page if sign-in isn't set up). */}
+          { }
           <a
-            href="#"
+            href="/api/auth/login"
             className="inline-flex h-8 items-center rounded-md border border-line-strong px-3.5 text-[12px] text-fg transition-colors hover:border-fg-muted"
           >
             Connect GitHub

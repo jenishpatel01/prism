@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Billboard } from "@react-three/drei";
 import * as THREE from "three";
@@ -95,8 +95,13 @@ const vertexShader = /* glsl */ `
   uniform float uForm;
   uniform float uTime;
   uniform float uPixelRatio;
+  uniform vec3 uMouse;        // cursor, in the prism's local space
+  uniform float uMouseActive; // 0 → 1
+  uniform vec3 uShockOrigin;  // where the last click hit
+  uniform float uShockTime;   // seconds since that click
   varying float vSeed;
   varying float vDepth;
+  varying float vGlow;
 
   float easeOutCubic(float t) { return 1.0 - pow(1.0 - t, 3.0); }
 
@@ -113,10 +118,25 @@ const vertexShader = /* glsl */ `
       sin(uTime * 0.7 + aSeed * 23.0)
     );
 
+    // Cursor: particles near the pointer move aside and brighten.
+    vec3 toMouse = pos - uMouse;
+    float md = length(toMouse);
+    float push = smoothstep(1.15, 0.0, md) * uMouseActive;
+    pos += (toMouse / max(md, 0.0001)) * push * (0.35 + aSeed * 0.25);
+
+    // Click: a shockwave ring travels outward from the hit point and fades.
+    vec3 toShock = pos - uShockOrigin;
+    float sd = length(toShock);
+    float front = uShockTime * 3.4;
+    float wave = exp(-pow((sd - front) * 2.4, 2.0)) * exp(-uShockTime * 1.5);
+    pos += (toShock / max(sd, 0.0001)) * wave * 0.55;
+
+    vGlow = push * 0.9 + wave * 1.4;
+
     vec4 mv = modelViewMatrix * vec4(pos, 1.0);
     gl_Position = projectionMatrix * mv;
     float size = mix(2.0, 3.6, aSeed);
-    gl_PointSize = size * uPixelRatio * (6.0 / -mv.z);
+    gl_PointSize = size * (1.0 + vGlow * 0.6) * uPixelRatio * (6.0 / -mv.z);
     vSeed = aSeed;
     vDepth = -mv.z;
   }
@@ -128,13 +148,16 @@ const fragmentShader = /* glsl */ `
   uniform float uOpacity;
   varying float vSeed;
   varying float vDepth;
+  varying float vGlow;
 
   void main() {
     float d = length(gl_PointCoord - 0.5);
     float alpha = smoothstep(0.5, 0.0, d);
     // White core of points with a blue/violet tint on roughly half of them.
     vec3 color = mix(vec3(1.0), mix(uColorA, uColorB, vSeed) * 1.3, step(0.5, vSeed) * 0.9);
-    gl_FragColor = vec4(color, alpha * uOpacity);
+    // Disturbed particles flare cyan.
+    color = mix(color, vec3(0.55, 0.95, 1.0) * 1.6, clamp(vGlow, 0.0, 1.0));
+    gl_FragColor = vec4(color, alpha * uOpacity * (1.0 + vGlow));
   }
 `;
 
@@ -202,18 +225,73 @@ export default function Prism({ count: countProp }: { count?: number }) {
       uPixelRatio: { value: 1 },
       uColorA: { value: new THREE.Color("#5b8cff") },
       uColorB: { value: new THREE.Color("#8d7cff") },
+      uMouse: { value: new THREE.Vector3(99, 99, 99) },
+      uMouseActive: { value: 0 },
+      uShockOrigin: { value: new THREE.Vector3() },
+      uShockTime: { value: 100 },
     }),
     [],
   );
 
+  // Pointer tracking: where the cursor meets a plane through the prism, facing the camera.
+  const pointer = useRef({
+    raycaster: new THREE.Raycaster(),
+    plane: new THREE.Plane(),
+    hit: new THREE.Vector3(),
+    local: new THREE.Vector3(99, 99, 99),
+    normal: new THREE.Vector3(),
+    center: new THREE.Vector3(),
+    lastMove: -10,
+    lastXY: "",
+    shockPending: false,
+    shockStart: -100,
+  });
+
+  useEffect(() => {
+    const onDown = () => {
+      pointer.current.shockPending = true;
+    };
+    window.addEventListener("pointerdown", onDown, { passive: true });
+    return () => window.removeEventListener("pointerdown", onDown);
+  }, []);
+
   useFrame((state, delta) => {
     const u = material.current?.uniforms;
-    if (u) {
+    const g0 = group.current;
+    if (u && g0) {
       u.uForm.value = intro.form;
       u.uTime.value = state.clock.elapsedTime;
       u.uPixelRatio.value = state.gl.getPixelRatio();
       // Fade particles slightly as the camera passes through the object.
       u.uOpacity.value = 1 - THREE.MathUtils.smoothstep(hero.progress, 0.75, 1) * 0.85;
+
+      // Find the cursor in the prism's own space so the effect follows its rotation.
+      const pt = pointer.current;
+      const now = state.clock.elapsedTime;
+      const xy = `${state.pointer.x.toFixed(3)},${state.pointer.y.toFixed(3)}`;
+      if (xy !== pt.lastXY) {
+        pt.lastXY = xy;
+        pt.lastMove = now;
+      }
+      g0.getWorldPosition(pt.center);
+      state.camera.getWorldDirection(pt.normal);
+      pt.plane.setFromNormalAndCoplanarPoint(pt.normal, pt.center);
+      pt.raycaster.setFromCamera(state.pointer, state.camera);
+      if (pt.raycaster.ray.intersectPlane(pt.plane, pt.hit)) {
+        pt.local.copy(pt.hit);
+        g0.worldToLocal(pt.local);
+        u.uMouse.value.lerp(pt.local, 1 - Math.pow(0.0001, delta));
+      }
+      // Active while the cursor is moving; eases off a couple of seconds after it stops.
+      const active = now - pt.lastMove < 2 ? intro.edges : 0;
+      u.uMouseActive.value = THREE.MathUtils.damp(u.uMouseActive.value, active, 4, delta);
+
+      if (pt.shockPending) {
+        pt.shockPending = false;
+        pt.shockStart = now;
+        u.uShockOrigin.value.copy(u.uMouse.value);
+      }
+      u.uShockTime.value = now - pt.shockStart;
     }
     if (edgeMat.current) edgeMat.current.opacity = intro.edges * 0.8;
     if (core.current) {

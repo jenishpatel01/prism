@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import type { Severity } from "@/lib/demoAnalysis";
-import { repo } from "@/lib/demoAnalysis";
+import type { AnalysisResult, Severity } from "@/lib/analysisTypes";
 import Icon from "./Icon";
+import TimeAgo from "./TimeAgo";
 
 /** A quiet bordered surface. `bare` drops the fill so the 3D canvas shows through. */
 export function Panel({
@@ -96,12 +96,23 @@ export function Sparkline({
 }
 
 /** Title row with repository context and actions, shared by all app screens. */
-export function PageHeader({ title, description }: { title: string; description?: string }) {
+export function PageHeader({
+  title,
+  description,
+  repo,
+}: {
+  title: string;
+  description?: string;
+  repo: AnalysisResult["repo"] & { demo?: boolean };
+}) {
   return (
     <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-      <div>
-        <p className="font-mono text-[12px] text-fg-dim">
-          {repo.owner} / {repo.name} / <span className="text-fg-muted">{title}</span>
+      <div className="min-w-0">
+        <p className="flex flex-wrap items-center gap-2 font-mono text-[12px] text-fg-dim">
+          <span>
+            {repo.owner} / {repo.name} / <span className="text-fg-muted">{title}</span>
+          </span>
+          {repo.demo && <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[10.5px] uppercase tracking-[0.1em] text-accent">Demo data</span>}
         </p>
         <h1 className="mt-2 text-[30px] font-medium tracking-[-0.03em] text-white md:text-[36px]">{title}</h1>
         {description ? (
@@ -114,27 +125,42 @@ export function PageHeader({ title, description }: { title: string; description?
             </span>
             <span className="inline-flex items-center gap-1.5">
               <span className="size-1.5 rounded-full bg-success shadow-[0_0_8px_var(--success)]" />
-              Analyzed {repo.analyzedAgo}
+              Analyzed {repo.demo ? "4 min ago" : <TimeAgo iso={repo.analyzedAt} />}
             </span>
             <span>Took {repo.duration}</span>
+            {repo.stars !== undefined && <span>★ {repo.stars.toLocaleString("en-US")}</span>}
           </p>
         )}
       </div>
-      <div className="flex gap-2">
-        <button
-          type="button"
-          className="inline-flex h-9 items-center gap-2 rounded-md border border-line-strong bg-bg-1/70 px-3.5 text-[13px] text-fg transition-colors hover:border-fg-muted"
-        >
-          <Icon name="export" size={15} />
-          Export
-        </button>
-        <button
-          type="button"
-          className="inline-flex h-9 items-center gap-2 rounded-md bg-white px-3.5 text-[13px] font-medium text-bg-0 shadow-[0_0_24px_rgb(91_140_255/0.35)] transition-shadow hover:shadow-[0_0_32px_rgb(91_140_255/0.6)]"
-        >
-          <Icon name="refresh" size={15} />
-          Re-analyze
-        </button>
+      <div className="flex shrink-0 gap-2">
+        {repo.demo ? (
+          <Link
+            href="/app/new"
+            className="inline-flex h-9 items-center gap-2 rounded-md bg-white px-3.5 text-[13px] font-medium text-bg-0 shadow-[0_0_24px_rgb(91_140_255/0.35)] transition-shadow hover:shadow-[0_0_32px_rgb(91_140_255/0.6)]"
+          >
+            <Icon name="search" size={15} />
+            Analyze a repository
+          </Link>
+        ) : (
+          <>
+            <a
+              href={`https://github.com/${repo.owner}/${repo.name}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-9 items-center gap-2 rounded-md border border-line-strong bg-bg-1/70 px-3.5 text-[13px] text-fg transition-colors hover:border-fg-muted"
+            >
+              <Icon name="export" size={15} />
+              GitHub
+            </a>
+            <Link
+              href="/app/new"
+              className="inline-flex h-9 items-center gap-2 rounded-md bg-white px-3.5 text-[13px] font-medium text-bg-0 shadow-[0_0_24px_rgb(91_140_255/0.35)] transition-shadow hover:shadow-[0_0_32px_rgb(91_140_255/0.6)]"
+            >
+              <Icon name="search" size={15} />
+              Analyze another
+            </Link>
+          </>
+        )}
       </div>
     </div>
   );

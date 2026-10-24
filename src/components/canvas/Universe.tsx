@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { PerspectiveCamera, View } from "@react-three/drei";
 import * as THREE from "three";
+import type { RepoGraph } from "@/lib/analysisTypes";
 import { CLUSTERS } from "@/lib/demoRepo";
 import { createNodeMaterial, seeded } from "./nodeMaterial";
 import { advancePulses, makePulseGeometry, makePulses, syncNodeMaterial, type Pulse } from "./pulses";
@@ -11,16 +12,45 @@ import { advancePulses, makePulseGeometry, makePulses, syncNodeMaterial, type Pu
 const PULSES = 90;
 
 /*
- * Demo repository universe. Each point is a file; clusters are layers of the
- * app (frontend → components → services → API → database). Node size stands
- * for complexity, links for imports, and red marks high-risk files.
- * Later this takes real data from PRISM's dependency graph.
+ * Repository universe. Each point is a file; clusters are folders (or, in the
+ * demo, layers of the app). Node size stands for complexity, links for imports,
+ * and red marks high-risk files. With a real analysis it draws that repo's graph.
  */
-
 
 const RISK = new THREE.Color("#ff4d5e");
 
 type Node = { p: THREE.Vector3; size: number; color: THREE.Color; cluster: number; hub: boolean };
+
+/** Lay out a real repository graph: one cluster per folder group, arranged on a ring. */
+export function layoutRepo(graph: RepoGraph) {
+  const rand = seeded(graph.nodes.length + 7);
+  const gauss = () => (rand() + rand() + rand() - 1.5) / 1.5;
+  const k = graph.groups.length;
+  const total = graph.nodes.length;
+  const centers = graph.groups.map((g, i) => {
+    if (k === 1) return new THREE.Vector3();
+    const a = (i / k) * Math.PI * 2 + 0.6;
+    const r = 2.5;
+    return new THREE.Vector3(Math.cos(a) * r * 1.15, Math.sin(a) * r * 0.85, (rand() - 0.5) * 1.6);
+  });
+  const groupIndex = new Map(graph.groups.map((g, i) => [g.name, i]));
+  const maxCx = Math.max(1, ...graph.nodes.map((n) => n.complexity));
+
+  const nodes: Node[] = graph.nodes.map((n) => {
+    const gi = groupIndex.get(n.group) ?? 0;
+    // Bigger groups spread wider so dense folders don't collapse into a blob.
+    const spread = 0.6 + Math.sqrt(graph.groups[gi].count / Math.max(1, total)) * 1.6;
+    return {
+      p: centers[gi].clone().add(new THREE.Vector3(gauss() * spread, gauss() * spread * 0.85, gauss() * spread)),
+      // Small repos get bigger nodes so the map never looks empty.
+      size: (0.32 + Math.sqrt(n.complexity / maxCx) * 1.0) * (total < 120 ? 1.5 : total < 300 ? 1.2 : 1),
+      color: n.risk >= 70 ? RISK.clone() : new THREE.Color(graph.groups[gi].color),
+      cluster: gi,
+      hub: false,
+    };
+  });
+  return { nodes, links: graph.links };
+}
 
 function buildGraph() {
   const rand = seeded(42);
@@ -62,14 +92,14 @@ function buildGraph() {
   return { nodes, links };
 }
 
-function UniverseGraph() {
+function UniverseGraph({ graph }: { graph?: RepoGraph }) {
   const group = useRef<THREE.Group>(null);
   const nodesRef = useRef<THREE.Points>(null);
   const pulsesRef = useRef<THREE.Points>(null);
   const pulseState = useRef<Pulse[]>([]);
   const nodeMat = useMemo(() => createNodeMaterial(320), []);
   const pulseMat = useMemo(() => createNodeMaterial(320), []);
-  const { nodes, links } = useMemo(() => buildGraph(), []);
+  const { nodes, links } = useMemo(() => (graph && graph.nodes.length ? layoutRepo(graph) : buildGraph()), [graph]);
 
   const nodeGeo = useMemo(() => {
     const g = new THREE.BufferGeometry().setFromPoints(nodes.map((n) => n.p));
@@ -116,15 +146,18 @@ function UniverseGraph() {
 
     const pr = state.gl.getPixelRatio();
     syncNodeMaterial(nodePoints, pr);
-    syncNodeMaterial(pulsePoints, pr);
-    advancePulses(
-      pulsePoints,
-      pulseState.current,
-      (i) => [nodes[links[i][0]].p, nodes[links[i][1]].p],
-      links.length,
-      delta,
-      13,
-    );
+    // No links (a repo with no internal imports): hide the pulses.
+    syncNodeMaterial(pulsePoints, pr, links.length ? 1 : 0);
+    if (links.length && pulseState.current.length) {
+      advancePulses(
+        pulsePoints,
+        pulseState.current,
+        (i) => [nodes[links[i][0]].p, nodes[links[i][1]].p],
+        links.length,
+        delta,
+        13,
+      );
+    }
 
     g.rotation.y += delta * 0.05;
     g.rotation.x = THREE.MathUtils.damp(g.rotation.x, state.pointer.y * -0.15, 2.5, delta);
@@ -142,11 +175,11 @@ function UniverseGraph() {
   );
 }
 
-export default function Universe({ className }: { className?: string }) {
+export default function Universe({ className, graph }: { className?: string; graph?: RepoGraph }) {
   return (
     <View className={className}>
       <PerspectiveCamera makeDefault fov={40} position={[0, 0, 10.5]} />
-      <UniverseGraph />
+      <UniverseGraph graph={graph} />
     </View>
   );
 }
