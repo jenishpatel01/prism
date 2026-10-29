@@ -4,11 +4,22 @@
  * passed to client components.
  */
 
+import type { ScoreInputs } from "./score";
+
 export type Severity = "critical" | "high" | "medium";
 export type Category = "security" | "performance" | "maintainability";
 
+export type TriageState = "ignored" | "false_positive" | "accepted";
+
+/** One user's decision about a finding. Never part of the shared, cached analysis. */
+export type Triage = { state: TriageState; note?: string; expiresAt?: string; issueUrl?: string };
+
 export type Issue = {
   id: string;
+  /** The rule that found it, e.g. "eval" or "secret". Absent in results saved before fingerprints. */
+  rule?: string;
+  /** Identity that survives edits (no line number). Absent in results saved before fingerprints. */
+  fingerprint?: string;
   severity: Severity;
   category: Category;
   title: string;
@@ -18,6 +29,8 @@ export type Issue = {
   risk: number; // 0–100
   detail?: string;
 };
+
+export type TriagedIssue = Issue & { triage: Triage };
 
 export type GraphNode = {
   id: string; // file path
@@ -39,6 +52,8 @@ export type AnalysisResult = {
     name: string;
     branch: string;
     commit: string;
+    /** Full commit id; `commit` is the first 7 characters. Absent in older results. */
+    commitFull?: string;
     description?: string;
     stars?: number;
     private?: boolean;
@@ -46,11 +61,17 @@ export type AnalysisResult = {
     duration: string;
     languages: { name: string; pct: number; color: string }[];
   };
-  health: { score: number; grade: string; previous?: number; history?: number[] };
+  health: { score: number; grade: string; previous?: number; history?: number[]; raw?: { score: number; grade: string } };
   stats: { label: string; value: string; delta?: string; good?: boolean | null }[];
   categories: { key: Category; label: string; count: number; color: string }[];
   severityCounts: { key: Severity; label: string; count: number }[];
   issues: Issue[]; // sorted by risk, highest first
+  /** Findings the viewer has set aside; only present once the viewer's triage is applied. */
+  triaged?: TriagedIssue[];
+  /** Findings dropped by the 300-issue and per-rule caps. Comparisons are approximate when above zero. */
+  overflow?: number;
+  scoreVersion?: number;
+  scoreInputs?: ScoreInputs;
   hotspots: { module: string; risk: number; complexity: number; churn?: number; fanIn?: number }[];
   quality: { label: string; value: string; unit: string; trend?: number[]; good: boolean; note?: string }[];
   pipeline: { stage: string; time: string; ai?: boolean; skipped?: boolean }[];

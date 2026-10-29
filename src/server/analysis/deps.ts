@@ -81,6 +81,7 @@ export async function auditDependencies(files: SourceFile[]): Promise<{ findings
           category: "security" as const,
           title: `${dep.name} ${dep.version} has ${ids.length === 1 ? "a known vulnerability" : `${ids.length} known vulnerabilities`}`,
           line: 0,
+          subject: `${dep.ecosystem}:${dep.name}:${ids[0]}`,
           source: `OSV · ${ids[0]}`,
           impact: summary ? (summary.length > 90 ? summary.slice(0, 88).trimEnd() + "…" : summary) : "Upgrade recommended",
         };

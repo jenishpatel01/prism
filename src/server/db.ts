@@ -1,10 +1,12 @@
 import postgres from "postgres";
 import type { AnalysisResult } from "@/lib/analysisTypes";
+import { factsOf } from "@/lib/score";
+import { migrate } from "./migrate";
 
 /*
  * Postgres (Supabase) access for users and saved analyses. Uses DATABASE_URL;
- * with Supabase, use the pooler connection string (port 6543). Tables are
- * created on first use (same SQL as supabase/schema.sql).
+ * with Supabase, use the pooler connection string (port 6543). Pending
+ * migrations (src/server/migrations.ts) are applied on first use.
  */
 
 type Sql = postgres.Sql;
@@ -26,48 +28,11 @@ function client(): Sql | null {
   return g.__prismSql;
 }
 
-export const SCHEMA = `
-create table if not exists prism_users (
-  github_id     bigint primary key,
-  login         text not null,
-  name          text,
-  avatar_url    text,
-  created_at    timestamptz not null default now(),
-  last_login_at timestamptz not null default now()
-);
-
-create table if not exists prism_analyses (
-  id          uuid primary key default gen_random_uuid(),
-  user_id     bigint not null references prism_users(github_id) on delete cascade,
-  owner       text not null,
-  repo        text not null,
-  branch      text,
-  commit_sha  text not null,
-  is_private  boolean not null default false,
-  score       integer not null,
-  grade       text,
-  issues      integer not null,
-  critical    integer not null,
-  result      jsonb not null,
-  created_at  timestamptz not null default now()
-);
-
-create unique index if not exists prism_analyses_user_commit
-  on prism_analyses (user_id, lower(owner), lower(repo), commit_sha);
-create index if not exists prism_analyses_user_recent
-  on prism_analyses (user_id, created_at desc);
-
--- Row level security on, with no policies: Supabase's public API can't read
--- these tables. PRISM's server connects directly and isn't affected.
-alter table prism_users enable row level security;
-alter table prism_analyses enable row level security;
-`;
-
 /** A ready connection, or null when no database is configured. */
 export async function db(): Promise<Sql | null> {
   const sql = client();
   if (!sql) return null;
-  g.__prismSchema ??= sql.unsafe(SCHEMA).then(() => undefined);
+  g.__prismSchema ??= migrate(sql).then(() => undefined);
   try {
     await g.__prismSchema;
   } catch (e) {
@@ -129,8 +94,10 @@ export type SavedRow = {
   created_at: Date;
 };
 
-export function saveAnalysis(user: { githubId: number; login: string; name: string | null; avatar: string }, r: AnalysisResult) {
+export function saveAnalysis(user: { githubId: number; login: string; name: string | null; avatar: string }, r: AnalysisResult, triggeredBy: "manual" | "push" | "pr" = "manual") {
   const critical = r.severityCounts.find((s) => s.key === "critical")?.count ?? 0;
+  // What it takes to rescore this analysis later without loading the whole result.
+  const inputs = r.scoreInputs ? { scoreInputs: r.scoreInputs, facts: factsOf(r.issues) } : null;
   return safely(async (sql) => {
     // The user row normally exists from sign-in, but not if the database was added after they signed in.
     await sql`
@@ -138,11 +105,21 @@ export function saveAnalysis(user: { githubId: number; login: string; name: stri
       values (${user.githubId}, ${user.login}, ${user.name}, ${user.avatar})
       on conflict (github_id) do nothing
     `;
+    // The score and counts saved here are the raw ones, never adjusted for anyone's triage.
     await sql`
-      insert into prism_analyses (user_id, owner, repo, branch, commit_sha, is_private, score, grade, issues, critical, result)
+      insert into prism_analyses (user_id, owner, repo, branch, commit_sha, is_private, score, grade, issues, critical, result,
+                                  commit_full, score_version, inputs, overflow, triggered_by)
       values (${user.githubId}, ${r.repo.owner}, ${r.repo.name}, ${r.repo.branch}, ${r.repo.commit}, ${Boolean(r.repo.private)},
-              ${r.health.score}, ${r.health.grade}, ${r.issues.length}, ${critical}, ${sql.json(r as unknown as postgres.JSONValue)})
-      on conflict (user_id, lower(owner), lower(repo), commit_sha) do nothing
+              ${r.health.raw?.score ?? r.health.score}, ${r.health.raw?.grade ?? r.health.grade}, ${r.issues.length + (r.triaged?.length ?? 0)}, ${critical},
+              ${sql.json(r as unknown as postgres.JSONValue)},
+              ${r.repo.commitFull ?? null}, ${r.scoreVersion ?? null}, ${inputs ? sql.json(inputs as unknown as postgres.JSONValue) : null}, ${r.overflow ?? null}, ${triggeredBy})
+      on conflict (user_id, lower(owner), lower(repo), commit_sha) do update set
+        commit_full   = coalesce(prism_analyses.commit_full, excluded.commit_full),
+        score_version = coalesce(prism_analyses.score_version, excluded.score_version),
+        overflow      = coalesce(prism_analyses.overflow, excluded.overflow),
+        -- Rows saved before fingerprints existed are upgraded when the same commit is analysed again.
+        result        = case when prism_analyses.inputs is null then excluded.result else prism_analyses.result end,
+        inputs        = coalesce(prism_analyses.inputs, excluded.inputs)
     `;
     return true;
   }, false);

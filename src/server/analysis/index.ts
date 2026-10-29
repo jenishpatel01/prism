@@ -1,8 +1,10 @@
 import { createHash } from "node:crypto";
 import { cacheLife } from "next/cache";
 import type { AnalysisResult, Category, Issue, RepoGraph, Severity } from "@/lib/analysisTypes";
+import { SCORE_VERSION, computeScore } from "@/lib/score";
 import { auditDependencies } from "./deps";
 import { AnalysisError, downloadSource, getRepoInfo, type SourceFile } from "./fetchRepo";
+import { assignFingerprints, patternSubject } from "./fingerprint";
 import { buildGraph } from "./graph";
 import { isCodeFile, parseFile, type FileFacts, type Finding } from "./parse";
 import { scanSecrets } from "./secrets";
@@ -76,18 +78,6 @@ function groupOf(path: string) {
   if (parts.length === 1) return "root";
   if (["src", "lib", "app", "packages", "apps"].includes(parts[0]) && parts.length > 2) return parts[1];
   return parts[0];
-}
-
-function grade(score: number) {
-  if (score >= 93) return "A";
-  if (score >= 88) return "A−";
-  if (score >= 83) return "B+";
-  if (score >= 77) return "B";
-  if (score >= 70) return "B−";
-  if (score >= 65) return "C+";
-  if (score >= 58) return "C";
-  if (score >= 50) return "D";
-  return "F";
 }
 
 /** Share of 6-line windows that appear more than once across code files. */
@@ -174,14 +164,16 @@ async function runAnalysis(owner: string, name: string, token?: string): Promise
   ];
 
   // Complexity and size findings, worst first, capped so they don't drown real risks.
-  allFns
-    .filter((f) => f.complexity >= 15 && isProd(f.path))
-    .sort((a, b) => b.complexity - a.complexity)
+  let overflow = 0;
+  const complexFns = allFns.filter((f) => f.complexity >= 15 && isProd(f.path)).sort((a, b) => b.complexity - a.complexity);
+  overflow += Math.max(0, complexFns.length - 15);
+  complexFns
     .slice(0, 15)
     .forEach((f) =>
       raw.push({
         path: f.path,
         rule: "complexity",
+        subject: f.name,
         severity: f.complexity >= 25 ? "high" : "medium",
         category: "maintainability",
         title: f.name === "anonymous" ? `Anonymous function has complexity ${f.complexity}` : `${f.name}() has complexity ${f.complexity}`,
@@ -191,14 +183,15 @@ async function runAnalysis(owner: string, name: string, token?: string): Promise
       }),
     );
 
-  facts
-    .filter((f) => f.lines > 800 && isProd(f.path))
-    .sort((a, b) => b.lines - a.lines)
+  const bigFiles = facts.filter((f) => f.lines > 800 && isProd(f.path)).sort((a, b) => b.lines - a.lines);
+  overflow += Math.max(0, bigFiles.length - 5);
+  bigFiles
     .slice(0, 5)
     .forEach((f) =>
       raw.push({
         path: f.path,
         rule: "large-file",
+        subject: "",
         severity: "medium",
         category: "maintainability",
         title: `Large file: ${fmt(f.lines)} lines`,
@@ -208,11 +201,13 @@ async function runAnalysis(owner: string, name: string, token?: string): Promise
       }),
     );
 
+  overflow += Math.max(0, graph.cycles.length - 10);
   graph.cycles.slice(0, 10).forEach((cycle) => {
     const names = cycle.map((i) => moduleLabel(facts[i].path));
     raw.push({
       path: facts[cycle[0]].path,
       rule: "cycle",
+      subject: cycle.map((i) => facts[i].path).sort().join(","),
       severity: cycle.length > 3 ? "high" : "medium",
       category: "maintainability",
       title: `Circular dependency: ${names.slice(0, 2).join(" ↔ ")}${names.length > 2 ? ` +${names.length - 2}` : ""}`,
@@ -225,13 +220,30 @@ async function runAnalysis(owner: string, name: string, token?: string): Promise
   const factIndex = new Map(facts.map((f, i) => [f.path, i]));
   const maxFanIn = Math.max(1, ...graph.fanIn);
 
+  // Fingerprints name each problem independent of its line, so later comparisons and
+  // "ignore" decisions survive edits. Pattern rules are identified by the function
+  // they sit in plus the text of the line.
+  const textOf = new Map(files.map((f) => [f.path, f.text]));
+  const fnsOf = new Map(facts.map((f) => [f.path, f.functions]));
+  const linesCache = new Map<string, string[]>();
+  const linesOf = (path: string) => {
+    let l = linesCache.get(path);
+    if (!l) linesCache.set(path, (l = (textOf.get(path) ?? "").split("\n")));
+    return l;
+  };
+  const fingerprints = assignFingerprints(
+    raw.map((r) => ({ rule: r.rule, path: r.path, line: r.line, subject: r.subject ?? patternSubject(fnsOf.get(r.path) ?? [], linesOf(r.path), r.line) })),
+  );
+
   const issues: Issue[] = raw
-    .map((r) => {
+    .map((r, idx) => {
       const fi = factIndex.get(r.path);
       const reach = fi !== undefined ? graph.fanIn[fi] : 0;
       const risk = Math.min(99, Math.round(SEVERITY_BASE[r.severity] + (reach / maxFanIn) * 10 + (r.rule === "secret" ? 6 : 0)));
       return {
         id: shortId(`${r.path}:${r.line}:${r.rule}:${r.title}`),
+        rule: r.rule,
+        fingerprint: fingerprints[idx],
         severity: r.severity,
         category: r.category,
         title: r.title,
@@ -242,8 +254,9 @@ async function runAnalysis(owner: string, name: string, token?: string): Promise
         detail: r.detail,
       };
     })
-    .sort((a, b) => b.risk - a.risk)
-    .slice(0, 300);
+    .sort((a, b) => b.risk - a.risk);
+  overflow += Math.max(0, issues.length - 300);
+  issues.length = Math.min(issues.length, 300);
 
   const count = (s: Severity) => issues.filter((i) => i.severity === s).length;
   const countCat = (c: Category) => issues.filter((i) => i.category === c).length;
@@ -253,14 +266,8 @@ async function runAnalysis(owner: string, name: string, token?: string): Promise
 
   /* ---------- Score ---------- */
 
-  const penalty =
-    Math.min(40, crit * 8) +
-    Math.min(25, (high * 25) / (high + 10)) +
-    Math.min(15, (med * 15) / (med + 20)) +
-    Math.min(12, Math.max(0, (avgCx - 4) * 3)) +
-    Math.min(8, Math.max(0, dupPct - 3)) +
-    Math.min(10, graph.cycles.length * 2);
-  const score = Math.max(0, Math.min(100, Math.round(100 - penalty)));
+  const scoreInputs = { crit, high, med, avgCx, dupPct, cycles: graph.cycles.length };
+  const { score, grade } = computeScore(scoreInputs);
 
   /* ---------- Hotspots ---------- */
 
@@ -353,6 +360,7 @@ async function runAnalysis(owner: string, name: string, token?: string): Promise
       name: info.name,
       branch: info.branch,
       commit: commit ? commit.slice(0, 7) : "latest",
+      commitFull: commit || undefined,
       description: info.description,
       stars: info.stars,
       private: info.private,
@@ -360,7 +368,10 @@ async function runAnalysis(owner: string, name: string, token?: string): Promise
       duration: ms(performance.now() - t0),
       languages,
     },
-    health: { score, grade: grade(score) },
+    health: { score, grade },
+    scoreInputs,
+    scoreVersion: SCORE_VERSION,
+    overflow,
     stats: [
       { label: "Code files", value: fmt(facts.length) },
       { label: "Functions", value: fmt(allFns.length) },

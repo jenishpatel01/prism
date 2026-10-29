@@ -18,6 +18,8 @@ export type Finding = {
   source: string;
   impact: string;
   detail?: string;
+  /** What makes this finding "the same" across commits (see fingerprint.ts). Pattern rules leave it out. */
+  subject?: string;
 };
 
 export type FileFacts = {
